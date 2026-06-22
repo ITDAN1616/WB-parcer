@@ -1,5 +1,6 @@
 from curl_cffi.requests import AsyncSession
 import pandas as pd
+import random
 import asyncio
 
 
@@ -29,22 +30,39 @@ def parce_products(products):
                        'Брэнд': i.get('brand'),
                        'Цена со скидкой': i.get('sizes')[0].get('price').get('product') // 100,
                        'Цена без скидок': i.get('sizes')[0].get('price').get('basic') // 100,})
-        print(needed[-1])
-        print("\n")
+        # print(needed[-1])
+        # print("\n")
     return needed
 
 
 def save_to_excel(products, filename):
-    pass
+    tabl = pd.DataFrame(data=products)
+    print(tabl)
+    tabl.to_excel(f"{filename}.xlsx", index=False)
 
 
 async def main():
-    params = {'query': 'наушники', 'sort': 'popular', 'page': 1}
-    data = await get_data(params)  # await застопорит main() пока get_data() не вернёт результат, при этом пока main() стоит могут выполняться дргуие задачи (Tasks)
-    parce_products(data)
+    while True:
+        pages = input("Сколько страниц с товаром нужно? ")
+        try:
+            int(pages)
+        except:
+            print("Введи ЧИСЛО")
+            continue
+        if (int(pages) > 10):
+            print("Извините, но этот парсер рассчитан максимум на 10 страниц")
+            continue
+        break
+
+    for i in range(1, pages + 1):
+        params = {'query': 'шампунь', 'sort': 'popular', 'page': i}
+        await asyncio.sleep(random.uniform(2.1, 4.8))
+        data = await get_data(params)  # await застопорит main() пока get_data() не вернёт результат, при этом пока main() стоит могут выполняться дргуие задачи (Tasks)
+        products = parce_products(data)
+        save_to_excel(products=products, filename='TABL')
 
 
 
 if __name__ == "__main__":
-    asyncio.run(main())  # Запуск цикла событий в одном потоке, с передачей в него корютины, которая становится задачей (Task) и заврещающая цикл при своём завершении
+    asyncio.run(main())  # Запуск цикла событий в одном потоке, с передачей в него корютины, которая становится задачей (Task) и заверщающая цикл при своём завершении
     # Важно понимать, что задачи (Tasks) не делятся на родительские и дочерние, все они просто находятся в цикле событий, в очереди на выполнение
