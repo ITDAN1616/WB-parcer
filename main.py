@@ -1,10 +1,10 @@
-from curl_cffi.requests import AsyncSession
+from curl_cffi.requests import Session
+from time import sleep
 import pandas as pd
 import random
-import asyncio
 
 
-async def get_data(params):
+def get_data(params):
     headers = {
     'User-Agent': 'Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/146.0.0.0 Safari/537.36',
     'Accept': '*/*',
@@ -15,8 +15,12 @@ async def get_data(params):
     }
     url = 'https://search.wb.ru/exactmatch/ru/common/v18/search?curr=rub&dest=-1257786&lang=ru&locale=ru&spp=30&resultset=catalog'
 
-    async with AsyncSession(impersonate="chrome146", headers=headers) as session:
-        response = await session.get(url=url, params=params)
+    with Session(impersonate="chrome146", headers=headers) as session:
+        response = session.get(url=url, params=params)
+        while (response.status_code != 200):
+            print(f"Опа, ошибочка {response.status_code}")
+            sleep(random.uniform(10.2, 15.4))
+            response = session.get(url=url, params=params)
         print(response.status_code)
         data = response.json()
         return data['products']
@@ -41,28 +45,37 @@ def save_to_excel(products, filename):
     tabl.to_excel(f"{filename}.xlsx", index=False)
 
 
-async def main():
+def main():
     while True:
-        pages = input("Сколько страниц с товаром нужно? ")
         try:
-            int(pages)
+            pages = int(input("Сколько страниц с товаром нужно? "))
         except:
             print("Введи ЧИСЛО")
             continue
-        if (int(pages) > 10):
+        if (pages > 10):
             print("Извините, но этот парсер рассчитан максимум на 10 страниц")
             continue
+        elif (pages <= 0):
+            print("Число должно быть положительным")
+            continue
+
+        query = input("Введи название товара ")
+
         break
 
+
+    all_products = []
     for i in range(1, pages + 1):
-        params = {'query': 'шампунь', 'sort': 'popular', 'page': i}
-        await asyncio.sleep(random.uniform(2.1, 4.8))
-        data = await get_data(params)  # await застопорит main() пока get_data() не вернёт результат, при этом пока main() стоит могут выполняться дргуие задачи (Tasks)
+        params = {'query': query, 'sort': 'popular', 'page': i}
+        sleep(random.uniform(2.1, 4.8))
+        data = get_data(params)  # await застопорит main() пока get_data() не вернёт результат, при этом пока main() стоит могут выполняться дргуие задачи (Tasks)
         products = parce_products(data)
-        save_to_excel(products=products, filename='TABL')
+        all_products += products
+    print(all_products)
+    save_to_excel(all_products, 'TABL')
 
 
 
 if __name__ == "__main__":
-    asyncio.run(main())  # Запуск цикла событий в одном потоке, с передачей в него корютины, которая становится задачей (Task) и заверщающая цикл при своём завершении
+    main()  # Запуск цикла событий в одном потоке, с передачей в него корютины, которая становится задачей (Task) и заверщающая цикл при своём завершении
     # Важно понимать, что задачи (Tasks) не делятся на родительские и дочерние, все они просто находятся в цикле событий, в очереди на выполнение
